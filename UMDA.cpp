@@ -4,7 +4,8 @@
 #include <algorithm>
 using namespace std;
 
-default_random_engine generator;
+random_device r;     // only used once to initialise (seed) engine
+default_random_engine generator(r()); // random-number engine
 
 struct result {
     vector<vector<int> > min_flags;
