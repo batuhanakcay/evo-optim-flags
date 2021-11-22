@@ -2,9 +2,12 @@
 #include <random>
 #include <vector>
 #include <algorithm>
+#include <map>
 using namespace std;
 
-default_random_engine generator;
+random_device r;     // only used once to initialise (seed) engine
+default_random_engine generator(r());    // random-number engine
+
 
 struct result {
     vector<vector<int> > min_flags;
@@ -150,6 +153,42 @@ vector< vector<float> > cal_mutual_information( vector<float> univ, vector< vect
 
 }
 
+map<int,int> calc_max_weight_spanning_tree(vector <vector <float> > mutual_info){
+    //Calculate the maximum weight spanning tree based on mutual informaiton
+    //input: Mutual Information matrix (size n_flag,n_flag)
+    //output: Tree-structure in a map 
+
+    size_t n_flag = mutual_info.size();
+
+    int root = 0;
+    int next = 0;
+    int maximum = 0;
+
+    map<int,int> tree;
+    vector<int> added; 
+
+    for(size_t i=0; i<n_flag; i++){
+        for(size_t j=0; j<n_flag; j++){
+            if( mutual_info[i][j] > maximum){
+                root = i;
+                next = j;
+                maximum =  mutual_info[i][j] ;
+            }
+        }
+    }
+
+    tree[root] = next;
+    added.push_back(root);
+    added.push_back(next);
+
+    while(added.size() < n_flag){
+
+    }
+
+    return tree;
+
+}
+
 result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
    // generate initial population of n_pop individuals 
    vector<float> prob(n_flags, 0.5);
@@ -188,10 +227,7 @@ result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, flo
         vector< vector<float> > mutual_info = cal_mutual_information(univ_probs, biv_probs);
 
        //Calculate maximum weight spanning tree
-        
-
-
-       //Compute parameters of the model
+        map<int,int> tree = calc_max_weight_spanning_tree(mutual_info);
 
        //Sample n_pop individuals from the tree
 
