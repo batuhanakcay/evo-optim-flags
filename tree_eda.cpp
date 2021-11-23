@@ -3,6 +3,8 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <math.h>
+
 using namespace std;
 
 random_device r;     // only used once to initialise (seed) engine
@@ -30,13 +32,16 @@ float objective(vector<int> flags){
     return float(sum);
 };
 
-vector<vector<int> > random_sampling(vector<float> probability, int n_pop){
+vector< vector<int> > random_sampling(vector<float> probability, int n_pop){
     //generate a population from a random sampling
     //input: initial probability vector for each flag; # of individuals in the population
     //output: vector of size n_pop, #flags
 
     size_t num_flags = probability.size();
-    vector<vector<int> > pop_flags(n_pop, vector<int> (num_flags,0));
+    
+    vector< vector<int> > pop_flags(n_pop, vector<int> (num_flags,0));
+
+
     for(size_t i = 0; i < num_flags; i++){
         bernoulli_distribution distribution(probability[i]);
         for(size_t j = 0; j < n_pop; j++){
@@ -57,6 +62,16 @@ vector<int> selection(vector<pair<float,int> > sorted_runtimes, float r_sel){
         pop_index[i] = sorted_runtimes[i].second;
     }
     return pop_index;
+}
+
+void mutation(vector<vector<int> > & pop_flags, float r_mut){
+    for (size_t i = 0 ; i < pop_flags.size(); i ++){
+        for(size_t j = 0 ; j < pop_flags[i].size(); j++){
+            if (((float) rand()) / (float) RAND_MAX < r_mut){
+                pop_flags[i][j] = (pop_flags[i][j] + 1) % 2;
+            }
+        }
+    }
 }
 
 vector<float> cal_univariate_prob(vector<vector<int> > population){
@@ -110,8 +125,13 @@ vector< vector <float> > cal_bivariate_prob(vector<vector<int> > population){
 
     vector< vector <float> > probs(n_flag, vector<float>(n_flag,0.0));
 
+    //upper and lower to make sure that the probability is not stuck at 0 or 1 *****
+    float upper = 1.0 - 1.0/n_flag;
+    float lower = 1.0/n_flag;
+
     for(size_t i=0; i<n_flag; i++){
         for(size_t j=0; j<n_flag; j++){
+            //if i==j, pr should be zero for constructing the MWS tree
             float pr = 0.0;
             if(i != j){
 
@@ -125,7 +145,15 @@ vector< vector <float> > cal_bivariate_prob(vector<vector<int> > population){
 
             }
 
-            probs[i][j] = pr;
+            if(pr > upper){
+                probs[i][j] = upper;
+            }
+            else if(pr < lower){
+                probs[i][j] = lower;
+            }
+            else{
+                probs[i][j] = pr;
+            }
 
         }
     }
@@ -144,8 +172,32 @@ vector< vector<float> > cal_mutual_information( vector<float> univ, vector< vect
     vector< vector <float> > mutual_info(n_flag, vector<float>(n_flag,0.0));
 
     for(size_t i=0; i<n_flag; i++){
+        float pij,pi,pj;
         for(size_t j=0; j<n_flag; j++){
-            mutual_info[i][j] = log( biv[i][j] / (univ[i] * univ[j]) );
+            // i and j
+            pij = biv[i][j];
+            pi = univ[i];
+            pj = univ[j];
+            mutual_info[i][j] += pij * log(pij/(pi*pj)) ;
+            // i and not j
+            pij = univ[i] - biv[i][j];
+            pi = univ[i];
+            pj = 1 - univ[j];
+            mutual_info[i][j] += pij * log(pij/(pi*pj)) ;
+            // not i and j
+            pij = univ[j] - biv[i][j];
+            pi = 1 - univ[i];
+            pj = univ[j];
+            mutual_info[i][j] += pij * log(pij/(pi*pj)) ;
+            // not i and not j
+            pij = 1 - (univ[i] + univ[j] -  biv[i][j]);
+            pi = 1 - univ[i];
+            pj = 1 - univ[j];
+            mutual_info[i][j] += pij * log(pij/(pi*pj)) ;
+            //mutual_info must be non negative
+            if(mutual_info[i][j] < 0  || isnan(mutual_info[i][j]))  {
+                mutual_info[i][j] = 0; 
+            }
         }
     }
 
@@ -153,41 +205,165 @@ vector< vector<float> > cal_mutual_information( vector<float> univ, vector< vect
 
 }
 
-map<int,int> calc_max_weight_spanning_tree(vector <vector <float> > mutual_info){
+void print_tree(map<int, vector<int> >my_tree){
+
+    for(map<int, vector<int> >::const_iterator it = my_tree.begin(); it != my_tree.end(); ++it){
+        int parent = it->first;
+        cout << parent << " : ";
+        vector<int> sons = it->second;
+        for(size_t i=0; i<sons.size(); i++){
+            cout << sons[i] << ",";
+        }
+        cout << endl;
+    }
+    return;    
+}
+
+map<int, vector<int> > calc_max_weight_spanning_tree(vector <vector <float> > mutual_info){
     //Calculate the maximum weight spanning tree based on mutual informaiton
     //input: Mutual Information matrix (size n_flag,n_flag)
     //output: Tree-structure in a map 
 
     size_t n_flag = mutual_info.size();
 
-    int root = 0;
-    int next = 0;
-    int maximum = 0;
-
-    map<int,int> tree;
+    map<int, vector<int> > tree;
     vector<int> added; 
 
-    for(size_t i=0; i<n_flag; i++){
-        for(size_t j=0; j<n_flag; j++){
-            if( mutual_info[i][j] > maximum){
-                root = i;
-                next = j;
-                maximum =  mutual_info[i][j] ;
-            }
-        }
-    }
-
-    tree[root] = next;
+    //Select random root and add it to the tree
+    uniform_int_distribution<> distrib(0,n_flag-1);
+    int root = distrib(generator);
+    //cout << "ROOT:" << root << endl;
     added.push_back(root);
-    added.push_back(next);
+    vector<int> best_match(n_flag, root);
 
     while(added.size() < n_flag){
 
+        int parent = -1;
+        int to_add = -1;
+        float maximum = -1.0;
+
+        vector<float> temp; 
+
+        for(size_t i=0; i<n_flag; i++){
+            if ( count(added.begin(), added.end(), i) == 0 ){
+               
+                temp.push_back(mutual_info[i][ best_match[i] ] );
+               
+                if( mutual_info[i][ best_match[i] ] > maximum ){
+                    maximum = mutual_info[i][ best_match[i] ];
+                    parent = best_match[i];
+                    to_add = i;
+                }
+            }
+        }
+        
+        /*for(size_t k=0; k<temp.size(); k++){
+            cout << ">>" << temp[k] ;
+        }
+        cout << endl;
+        cout << parent << ":" << to_add << "=>" << maximum << endl;*/
+
+        if(tree.count(parent)){
+            tree[parent].push_back(to_add);
+        }else{
+            tree[parent] = vector<int>(1,to_add);
+        }
+
+        added.push_back(to_add);
+
+        for(size_t i=0; i<n_flag; i++){
+            if ( count(added.begin(), added.end(), i) == 0 ){
+                if( mutual_info[i][to_add] > mutual_info[i][ best_match[i] ] ){
+                    best_match[i] = to_add;
+                }
+            }
+        }        
+
     }
+
+    //easy access to root with -1
+    tree[-1] = vector<int>(1,root);
 
     return tree;
 
 }
+
+map<int,int> get_parents(map<int,vector<int> > my_tree){
+    //get a map with the parents of each node
+    //input: tree formated as parent int-> sons vector<int>
+    //output: pairs of son(int)-> parent(int)
+
+    map<int,int> result;
+
+    for(map<int, vector<int> >::const_iterator it = my_tree.begin(); it != my_tree.end(); ++it){
+        int parent = it->first;
+        if(parent == -1) continue; //skipping our root access because is not important
+        vector<int> sons = it->second;
+        for(size_t i=0; i<sons.size(); i++){
+            result[ sons[i] ] = parent;
+        }
+    }
+
+    return result;
+
+} 
+
+vector< vector<int> > tree_sampling(map<int, vector<int> > tree, vector<float> univ , vector <vector<float>> biv , int n_pop ){
+    //generate a population from a tree sampling, using probabilistic logic sampling
+    //input: maximum weight spanning tree; univariate and bivariate probabilities;# of individuals in the population
+    //output: vector of size n_pop, #flags
+
+    size_t num_flags = univ.size();
+    
+    vector<vector<int> > pop_flags(n_pop, vector<int> (num_flags,0));
+
+    //Get the root of the tree and the tree parents
+    int root = tree[-1][0];
+    map<int,int> parents = get_parents(tree);
+
+    for(size_t i=0; i<n_pop; i++){
+        // sample truth for root depending on the univariate distribution
+        bernoulli_distribution root_dist(univ[root]);
+        pop_flags[i][root] = root_dist(generator);
+        
+        //insert sons of the root into a stack
+        vector<int> to_sample = tree[root];
+        while(to_sample.size() != 0){
+            //for every element of the stack, we sample according to its parent
+            int node = to_sample.back();
+            int parent = parents[node];
+
+            //calculating conditional probability
+            float intersection, condition;
+            if(pop_flags[i][parent]){
+                intersection = biv[parent][node] ;
+                condition = univ[parent] ;
+            }else{
+                intersection = univ[node] - biv[parent][node] ;
+                condition = 1-univ[parent];
+            }
+            
+            //sampling element of the stack
+            bernoulli_distribution node_dist(  intersection/condition  );
+            pop_flags[i][node] = node_dist(generator);
+
+            //popping element from the stack as it has been sampled
+            to_sample.pop_back();
+
+            //push sons of the element on the stack if they exist
+            if(tree.count(node)){
+                vector<int> to_add = tree[node];
+                for(size_t j=0; j<to_add.size(); j++ ){
+                    to_sample.push_back(to_add[j]);
+                }
+            }
+        }
+
+    }
+
+    return pop_flags;
+}
+
 
 result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
    // generate initial population of n_pop individuals 
@@ -227,9 +403,17 @@ result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, flo
         vector< vector<float> > mutual_info = cal_mutual_information(univ_probs, biv_probs);
 
        //Calculate maximum weight spanning tree
-        map<int,int> tree = calc_max_weight_spanning_tree(mutual_info);
+        map<int, vector<int> > tree = calc_max_weight_spanning_tree(mutual_info);
+        //cout << i << endl; print_tree(tree); 
 
        //Sample n_pop individuals from the tree
+        population = tree_sampling(tree, univ_probs, biv_probs, n_pop);
+        //cout << "post sampling!" << endl; 
+
+       // Mutation (not included originally, but used here for uniformity)
+        mutation(population, r_mut);
+        //cout << "post mutation!" << endl; 
+
 
     }
 
@@ -242,7 +426,10 @@ result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, flo
 
 }
 
+
 int main(){
+
+    
     // define the number of generations
     int n_gen = 50;
     // define the number of flags
@@ -257,10 +444,13 @@ int main(){
     int execution_time = 30;
     vector<result> results_each_generation;
 
+
     for(size_t i = 0; i < execution_time; i++){
+        cout << "Execution " << i << endl;
         result first = TreeEDA(objective, n_flags, n_gen, n_pop, r_mut, r_sel);
         results_each_generation.push_back(first);
     }
+
 
     //calculate efficiency gain
     vector<float> avg_min_runtime(n_gen,0);
@@ -280,6 +470,6 @@ int main(){
     for (size_t i = 0; i < n_gen; i++){
         cout << efficiency_gain[i] << ", ";
     }
-
+    
     return 0;
 }
