@@ -46,7 +46,7 @@ void print_flags(const vector<int> &flags){
     cout << flags[flags.size() - 1] << endl;
 }
 
-void print_min(const vector<float> &min_runtime, const vector<vector<int>> &min_flags){
+void print_min(const vector<float> &min_runtime, const vector<vector<int> > &min_flags){
     float time = min_runtime[0];
     size_t gen = 0;
     vector<int> flags = min_flags[0];
@@ -95,7 +95,7 @@ float objective(const vector<int> &flags, string compile_files, string filename)
 	return seconds;
 }
 
-vector<int> selection(vector<tuple<float,int>> sorted_runtimes, float r_sel){
+vector<int> selection(const vector<tuple<float,int> > &sorted_runtimes, float r_sel){
     int n_parents = int(r_sel * sorted_runtimes.size());
     vector<int> parents_index(n_parents);
     for (int i = 0; i < n_parents; i++){
@@ -104,7 +104,7 @@ vector<int> selection(vector<tuple<float,int>> sorted_runtimes, float r_sel){
     return parents_index;
 }
 
-vector<vector<int>> crossover(vector<int> parent1, vector<int> parent2){
+vector<vector<int> > crossover(const vector<int> &parent1, const vector<int> &parent2){
     uniform_int_distribution<int> uniform_dist(0, parent1.size());
     int crossover_point = uniform_dist(e1);
 
@@ -122,13 +122,13 @@ vector<vector<int>> crossover(vector<int> parent1, vector<int> parent2){
         }
     }
 
-    vector<vector<int>> children(2);
+    vector<vector<int> > children(2);
     children[0] = child1;
     children[1] = child2;
     return children;
 }
 
-void mutation(vector<vector<int>> & children, float r_mut){
+void mutation(vector<vector<int> > & children, float r_mut){
     for (size_t i = 0 ; i < children.size(); i ++){
         for(size_t j = 0 ; j < children[i].size(); j++){
             if (((float) rand()) / (float) RAND_MAX < r_mut){
@@ -140,7 +140,7 @@ void mutation(vector<vector<int>> & children, float r_mut){
 
 result genetic_algorithm(float (*fun)(const vector<int> &, string, string), string compile_files, string filename, int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
     uniform_int_distribution<int> uniform_dist(0, 1);
-    vector<vector<int>> population(n_pop, vector<int> (n_flags));
+    vector<vector<int> > population(n_pop, vector<int> (n_flags));
     for (int i = 0; i < n_pop; i++){
         for (int j = 0; j < n_flags ; j++){
             population[i][j] = uniform_dist(e1);
@@ -152,7 +152,7 @@ result genetic_algorithm(float (*fun)(const vector<int> &, string, string), stri
     vector<vector<int> > min_flags(n_gen, vector<int> (n_flags));
 
     for (int i = 0; i < n_gen; i++){
-        vector<tuple<float,int>> runtimes(n_pop);
+        vector<tuple<float,int> > runtimes(n_pop);
         for (int j = 0; j < n_pop; j++){
             float score = (*fun)(population[j], compile_files, filename);
             runtimes[j] = make_tuple(score, j);
@@ -165,20 +165,20 @@ result genetic_algorithm(float (*fun)(const vector<int> &, string, string), stri
         cout << "gen:" << i << ";" << "time:" << min_runtime[i] << endl;
 
         vector<int> parents_index = selection(runtimes, r_sel);
-        vector<vector<int>> new_generation;
+        vector<vector<int> > new_generation;
         for (size_t j = 0 ; j < parents_index.size(); j = j + 2){
-            vector<vector<int>> crossover_children = crossover(population[parents_index[j]], population[parents_index[j+1]]);
+            vector<vector<int> > crossover_children = crossover(population[parents_index[j]], population[parents_index[j+1]]);
             mutation(crossover_children, r_mut);
             new_generation.push_back(crossover_children[0]);
             new_generation.push_back(crossover_children[1]);
         }
         for (size_t j = 0 ; j < (parents_index.size() / 2) - 1; j++){
-            vector<vector<int>> crossover_children = crossover(population[parents_index[j]], population[parents_index[parents_index.size() - 1 - j]]);
+            vector<vector<int> > crossover_children = crossover(population[parents_index[j]], population[parents_index[parents_index.size() - 1 - j]]);
             mutation(crossover_children, r_mut);
             new_generation.push_back(crossover_children[0]);
             new_generation.push_back(crossover_children[1]);
         }
-        vector<vector<int>> crossover_children = crossover(population[parents_index[0]], population[parents_index[parents_index.size() / 2]]);
+        vector<vector<int> > crossover_children = crossover(population[parents_index[0]], population[parents_index[parents_index.size() / 2]]);
         mutation(crossover_children, r_mut);
         new_generation.push_back(crossover_children[0]);
         new_generation.push_back(crossover_children[1]);
