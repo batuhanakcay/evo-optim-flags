@@ -198,7 +198,7 @@ int main(){
     // define the algorithm used
     string alg = "GA";
     // define the number of generations
-    int n_gen = 2;
+    int n_gen = 50;
     // define the number of flags
     int n_flags = 107;
     // define the population size
@@ -208,7 +208,7 @@ int main(){
     // trunctation rate
     float r_sel = 0.5;
     // perform the UMDA
-    int execution_time = 2;
+    int execution_time = 30;
 
     vector<result> results_each_generation(execution_time);
 	string filename("basicmath_small");
