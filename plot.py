@@ -1,59 +1,64 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-result_file = "umda_gen3_exe3_output.txt"
+result_file = "tree_output.txt"
 
 results = {}
 
-# define the algorithm 
-alg = "UMDA"
-
-# define the number of executions
-n_exe = 3
-# define the number of generations
-n_gen = 3
-# define the number of flags
-n_flags = 107
-# define the population size
-n_pop = 100
-# mutation rate
-r_mut = 1.0 / n_flags
-# trunctation rate
-r_sel = 0.5
+parameters = {}
 
 with open(result_file) as f:
     lines = f.readlines()
     cur_filename = ""
     cur_execution = -1
     for line in lines:
-        content = line.split(",")
-        if content[0] == "alg":
-            alg = content[1]
-        elif content[0] == "n_exe":
-            n_exe = int(content[1])
-        elif content[0] == "n_gen":
-            n_gen = int(content[1])
-        elif content[0] == "n_flags":
-            n_flags = int(content[1])
-        elif content[0] == "n_pop":
-            n_pop = int(content[1])
-        elif content[0] == "r_mut":
-            r_mut = float(content[1])
-        elif content[0] == "r_sel":
-            r_sel = float(content[1])
-        elif content[0] == "F":
-            cur_filename = content[1]
-            executions = [([float('inf')] * n_gen) for x in range(n_exe)]
-            results[cur_filename] = executions
-        elif content[0] == "E":
-            cur_execution = int(content[1])
-        elif content[0] == "G":
-            cur_generation = int(content[1])
-            results[cur_filename][cur_execution][cur_generation] = float(content[2])
+        line = line.strip()
+        content = line.split(";")
+        if content[0] == "parameters":
+            for field in content[1:]:
+                field = field.split(":")
+                parameters[field[0]] = field[1]
+            times = [([float('inf')] * int(parameters["n_gen"])) for x in range(int(parameters["n_exe"]))]
+            bests = [None] * int(parameters["n_exe"])
+            results[parameters["filename"]] = [times, bests]
+        elif content[0] == "best":
+            best_values = {}
+            for field in content[1:]:
+                field = field.split(":")
+                best_values[field[0]] = field[1]
+                # bests
+                results[parameters["filename"]][1][cur_execution]= best_values
+        else:
+            field = content[0].split(":")
+            if field[0] == "exe":
+                cur_execution = int(field[1])
+            elif field[0] == "gen":
+                cur_generation = int(field[1])
+                for new_field in content[1:]:
+                    new_field = new_field.split(":")
+                    if new_field[0] == "time":
+                        # times
+                        results[parameters["filename"]][0][cur_execution][cur_generation] = float(new_field[1])
+
+# define the algorithm 
+alg = parameters["alg"]
+# define the number of executions
+n_exe = int(parameters["n_exe"])
+# define the number of generations
+n_gen = int(parameters["n_gen"])
+# define the number of flags
+n_flags = int(parameters["n_flags"])
+# define the population size
+n_pop = int(parameters["n_pop"])
+# mutation rate
+r_mut = float(parameters["r_mut"])
+# trunctation rate
+r_sel = float(parameters["r_sel"])
 
 for filename in results:
-    results[filename] = np.array(results[filename])
-    file_results = results[filename]
+    #times
+    results[filename][0] = np.array(results[filename][0])
+    file_results = results[filename][0]
 
     file_avg_gens = np.mean(file_results, axis=0)
     file_egs = (file_avg_gens[0] - file_avg_gens[:]) / file_avg_gens[0]
