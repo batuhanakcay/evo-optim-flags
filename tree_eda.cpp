@@ -4,35 +4,96 @@
 #include <algorithm>
 #include <map>
 #include <math.h>
-
+#include <fstream>
+#include <string>
 using namespace std;
 
 random_device r;     // only used once to initialise (seed) engine
 default_random_engine generator(r());    // random-number engine
 
+vector<string> gcc_flags{"-fauto-inc-dec", "-fbranch-count-reg", "-fcombine-stack-adjustments", "-fcompare-elim", 
+						 "-fcprop-registers", "-fdce", "-fdefer-pop", "-fdelayed-branch", "-fdse", "-fforward-propagate",
+						 "-fguess-branch-probability", "-fif-conversion", "-fif-conversion2", "-finline-functions-called-once",
+						 "-fipa-profile", "-fipa-pure-const", "-fipa-reference", "-fipa-reference-addressable", "-fmerge-constants",
+						 "-fmove-loop-invariants", "-fomit-frame-pointer", "-freorder-blocks", "-fshrink-wrap", "-fshrink-wrap-separate",
+						 "-fsplit-wide-types", "-fssa-backprop", "-fssa-phiopt", "-ftree-bit-ccp", "-ftree-ccp", "-ftree-ch", "-ftree-coalesce-vars",
+						 "-ftree-copy-prop", "-ftree-dce", "-ftree-dominator-opts", "-ftree-dse", "-ftree-forwprop", "-ftree-fre",
+						 "-ftree-phiprop", "-ftree-pta", "-ftree-scev-cprop", "-ftree-sink", "-ftree-slsr", "-ftree-sra",
+						 "-ftree-ter", "-funit-at-a-time", "-falign-functions", "-falign-jumps", "-falign-labels", "-falign-loops",
+						 "-fcaller-saves", "-fcode-hoisting", "-fcrossjumping", "-fcse-follow-jumps", "-fcse-skip-blocks", 
+						 "-fdelete-null-pointer-checks", "-fdevirtualize", "-fdevirtualize-speculatively", "-fexpensive-optimizations",
+						 "-fgcse", "-fgcse-lm", "-fhoist-adjacent-loads", "-finline-small-functions", "-findirect-inlining", "-fipa-bit-cp",
+						 "-fipa-cp", "-fipa-icf", "-fipa-ra", "-fipa-sra", "-fipa-vrp", "-fisolate-erroneous-paths-dereference", 
+						 "-flra-remat", "-foptimize-sibling-calls", "-foptimize-strlen", "-fpartial-inlining", "-fpeephole2",
+						 "-freorder-blocks-algorithm=stc", "-freorder-blocks-and-partition", "-freorder-functions", "-frerun-cse-after-loop",
+						 "-fschedule-insns", "-fschedule-insns2", "-fsched-interblock", "-fsched-spec", "-fstore-merging", "-fstrict-aliasing",
+						 "-fthread-jumps", "-ftree-builtin-call-dce", "-ftree-pre", "-ftree-switch-conversion", "-ftree-tail-merge",
+						 "-ftree-vrp", "-fgcse-after-reload", "-finline-functions", "-fipa-cp-clone", "-floop-interchange", "-floop-unroll-and-jam",
+						 "-fpeel-loops", "-fpredictive-commoning", "-fsplit-paths", "-ftree-loop-distribute-patterns", "-ftree-loop-distribution",
+						 "-ftree-loop-vectorize", "-ftree-partial-pre", "-ftree-slp-vectorize", "-funswitch-loops", "-fvect-cost-model",
+						 "-fversion-loops-for-strides"};
 
 struct result {
     vector<vector<int> > min_flags;
     vector<float> min_runtimes;
 };
 
-void print_flags(vector<int> flags){
-    cout << "[";
+void print_flags(const vector<int> &flags){
     for (size_t i = 0; i < flags.size() - 1; i++){
-        cout << flags[i] << ", ";
+        cout << flags[i] << ",";
     }
-    cout << flags[flags.size() - 1] << "]" << endl;
+    cout << flags[flags.size() - 1] << endl;
 }
 
-float objective(vector<int> flags){
-    int sum = 0;
-    for (size_t i = 0; i< flags.size(); i++){
-        sum += flags[i];
+void print_min(const vector<float> &min_runtime, const vector<vector<int> > &min_flags){
+    float time = min_runtime[0];
+    size_t gen = 0;
+    vector<int> flags = min_flags[0];
+    for (size_t i = 0; i < min_runtime.size(); i++){
+        if (time > min_runtime[i]){
+            time = min_runtime[i];
+            flags = min_flags[i];
+            gen = i;
+        }
     }
-    return float(sum);
-};
+    cout << "best" << ";time:" << time << ";gen:" << gen << ";flags:";
+    print_flags(flags);
+}
 
-vector< vector<int> > random_sampling(vector<float> probability, int n_pop){
+float objective(const vector<int> &flags, string compile_files, string filename){
+	//compile_files: files to compile by gcc
+	//sample compile_files: "basicmath/basicmath_large.c basicmath/rad2deg.c basicmath/cubic.c basicmath/isqrt.c "
+	//filename: compiled filename
+	//sample filename: "basicmath_large"
+	string compile_flags;
+	for(size_t i = 0; i < flags.size(); i++){
+		if(flags[i] == 1){
+			compile_flags += gcc_flags[i];
+			compile_flags += " ";
+		}
+	}
+    string command1 = "gcc " + compile_flags + compile_files + "-o " + filename + " -lm";
+	string command2 = "bash -c '(TIMEFORMAT='%3R'; time ./" + filename + " > output.txt) &> time.txt'";
+
+    system(command1.c_str());
+    system(command2.c_str());
+
+	ifstream myfile("time.txt");
+	string line;
+	float seconds;
+	if (myfile.is_open())
+	{
+		getline(myfile, line);
+		seconds = stof(line);
+		myfile.close();
+	}
+	else{
+		cout << "Unable to open file";
+	}
+	return seconds;
+}
+
+vector< vector<int> > random_sampling(const vector<float> &probability, int n_pop){
     //generate a population from a random sampling
     //input: initial probability vector for each flag; # of individuals in the population
     //output: vector of size n_pop, #flags
@@ -52,7 +113,7 @@ vector< vector<int> > random_sampling(vector<float> probability, int n_pop){
 
 }
 
-vector<int> selection(vector<pair<float,int> > sorted_runtimes, float r_sel){
+vector<int> selection(const vector<pair<float,int> > &sorted_runtimes, float r_sel){
     //select the fastest r_sel (a percentage) of population given the sorted runtimes vector
     //input: runtimes of size (n_pop,1), each element is a pair of <score, index>; selection rate
     //output: index of selected individuals
@@ -74,7 +135,7 @@ void mutation(vector<vector<int> > & pop_flags, float r_mut){
     }
 }
 
-vector<float> cal_univariate_prob(vector<vector<int> > population){
+vector<float> cal_univariate_prob(const vector<vector<int> > &population){
     //calculate the univariate marginal probability of each flag
     //input: selected population
     //output: probability vector with probabilities for each flag
@@ -115,7 +176,7 @@ vector<float> cal_univariate_prob(vector<vector<int> > population){
 
 }
 
-vector< vector <float> > cal_bivariate_prob(vector<vector<int> > population){
+vector< vector <float> > cal_bivariate_prob(const vector<vector<int> > &population){
     //calculate the bivariate marginal probability of each pair of flag
     //input: selected population
     //output: probability matrix with probabilities for each pair of flag (n_flag,n_flag)
@@ -162,7 +223,7 @@ vector< vector <float> > cal_bivariate_prob(vector<vector<int> > population){
 
 }
 
-vector< vector<float> > cal_mutual_information( vector<float> univ, vector< vector<float> > biv){
+vector< vector<float> > cal_mutual_information(const vector<float> &univ, const vector< vector<float> > &biv){
     //Calculate the matrix of mutual information for the flags
     //Input: Univariate and Bivariate probabilities
     //Output: Matrix of size (n_flag,n_flag)
@@ -205,7 +266,7 @@ vector< vector<float> > cal_mutual_information( vector<float> univ, vector< vect
 
 }
 
-void print_tree(map<int, vector<int> >my_tree){
+void print_tree(const map<int, vector<int> > &my_tree){
 
     for(map<int, vector<int> >::const_iterator it = my_tree.begin(); it != my_tree.end(); ++it){
         int parent = it->first;
@@ -219,7 +280,7 @@ void print_tree(map<int, vector<int> >my_tree){
     return;    
 }
 
-map<int, vector<int> > calc_max_weight_spanning_tree(vector <vector <float> > mutual_info){
+map<int, vector<int> > calc_max_weight_spanning_tree(const vector <vector <float> > &mutual_info){
     //Calculate the maximum weight spanning tree based on mutual informaiton
     //input: Mutual Information matrix (size n_flag,n_flag)
     //output: Tree-structure in a map 
@@ -308,7 +369,7 @@ map<int,int> get_parents(map<int,vector<int> > my_tree){
 
 } 
 
-vector< vector<int> > tree_sampling(map<int, vector<int> > tree, vector<float> univ , vector <vector<float>> biv , int n_pop ){
+vector< vector<int> > tree_sampling(map<int, vector<int> > tree, const vector<float> &univ , const vector <vector<float>> &biv , int n_pop ){
     //generate a population from a tree sampling, using probabilistic logic sampling
     //input: maximum weight spanning tree; univariate and bivariate probabilities;# of individuals in the population
     //output: vector of size n_pop, #flags
@@ -365,7 +426,7 @@ vector< vector<int> > tree_sampling(map<int, vector<int> > tree, vector<float> u
 }
 
 
-result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
+result TreeEDA(float (*fun)(const vector<int> &, string, string), string compile_files, string filename, int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
    // generate initial population of n_pop individuals 
    vector<float> prob(n_flags, 0.5);
    vector<vector<int> > population = random_sampling(prob, n_pop);
@@ -378,13 +439,13 @@ result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, flo
    // loop for n_gen iterations
    for(size_t i=0; i < n_gen; i++){
        //Calculation of performances of current population
-       min_runtime[i] = (*fun)(population[0]);
+       min_runtime[i] = (*fun)(population[0], compile_files, filename);
        min_flags[i] = population[0];
 
        vector<pair<float,int> > runtimes(n_pop, make_pair(0.0,0));
 
        for (int j = 0; j < n_pop; j++){
-            float score = (*fun)(population[j]);
+            float score = (*fun)(population[j], compile_files, filename);
             runtimes[j] = make_pair(score, j);
        }
 
@@ -394,6 +455,14 @@ result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, flo
        for(size_t j = 0; j < selected_idx.size(); j++){
            selected_population[j] = population[selected_idx[j]];
        }     
+
+        float cur_min_runtime = runtimes[0].first;
+        vector<int> cur_min_flag = population[runtimes[0].second];
+        if(cur_min_runtime < min_runtime[i]){
+            min_runtime[i] = cur_min_runtime;
+            min_flags[i] = cur_min_flag;
+        }
+        cout << "gen:" << i << ";" << "time:" << min_runtime[i] << endl;
 
        //Compute univariate and bivariate marginal frequencies
         vector<float> univ_probs = cal_univariate_prob(selected_population);
@@ -417,6 +486,8 @@ result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, flo
 
     }
 
+    print_min(min_runtime, min_flags);
+
     //result 
     result test;
     test.min_flags = min_flags;
@@ -429,28 +500,40 @@ result TreeEDA(float (*fun)(vector<int>), int n_flags, int n_gen, int n_pop, flo
 
 int main(){
 
-    
+    // define the algorithm used
+    string alg = "Tree-EDA";
     // define the number of generations
     int n_gen = 50;
     // define the number of flags
-    int n_flags = 58;
+    int n_flags = 107;
     // define the population size
     int n_pop = 100;
     // mutation rate
     float r_mut = 1.0 / float(n_flags);
     // trunctation rate
     float r_sel = 0.5;
-    // perform the TreeEDA
+    // perform the UMDA
     int execution_time = 30;
+
     vector<result> results_each_generation;
+	string filename("basicmath_small");
+	string compile_files("experiment/basicmath/basicmath_small.c experiment/basicmath/rad2deg.c experiment/basicmath/cubic.c experiment/basicmath/isqrt.c ");
 
-
+    cout << "parameters" << ";"; 
+    cout << "alg:" << alg << ";";
+    cout << "n_exe:" << execution_time << ";";
+    cout << "n_gen:" << n_gen << ";";
+    cout << "n_flags:" << n_flags << ";";
+    cout << "n_pop:" << n_pop << ";";
+    cout << "r_mut:" << r_mut << ";";
+    cout << "r_sel:" << r_sel << ";";
+    cout << "filename:" << filename << endl;
     for(size_t i = 0; i < execution_time; i++){
-        cout << "Execution " << i << endl;
-        result first = TreeEDA(objective, n_flags, n_gen, n_pop, r_mut, r_sel);
+		cout << "exe:" << i << endl;
+        result first = TreeEDA(objective, compile_files, filename, n_flags, n_gen, n_pop, r_mut, r_sel);
+
         results_each_generation.push_back(first);
     }
-
 
     //calculate efficiency gain
     vector<float> avg_min_runtime(n_gen,0);
@@ -470,6 +553,7 @@ int main(){
     for (size_t i = 0; i < n_gen; i++){
         cout << efficiency_gain[i] << ", ";
     }
-    
+	cout << endl;
+
     return 0;
 }
