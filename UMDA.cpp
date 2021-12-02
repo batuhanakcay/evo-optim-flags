@@ -35,14 +35,14 @@ struct result {
     vector<float> min_runtimes;
 };
 
-void print_flags(vector<int> flags){
+void print_flags(const vector<int> &flags){
     for (size_t i = 0; i < flags.size() - 1; i++){
         cout << flags[i] << ",";
     }
     cout << flags[flags.size() - 1] << endl;
 }
 
-void print_min(vector<float> min_runtime, vector<vector<int>> min_flags){
+void print_min(const vector<float> &min_runtime, const vector<vector<int>> &min_flags){
     float time = min_runtime[0];
     size_t gen = 0;
     vector<int> flags = min_flags[0];
@@ -57,7 +57,7 @@ void print_min(vector<float> min_runtime, vector<vector<int>> min_flags){
     print_flags(flags);
 }
 
-float objective(vector<int> flags, string compile_files, string filename){
+float objective(const vector<int> &flags, string compile_files, string filename){
 	//compile_files: files to compile by gcc
 	//sample compile_files: "basicmath/basicmath_large.c basicmath/rad2deg.c basicmath/cubic.c basicmath/isqrt.c "
 	//filename: compiled filename
@@ -90,7 +90,7 @@ float objective(vector<int> flags, string compile_files, string filename){
 	return seconds;
 }
 
-vector<vector<int> > sampling(vector<float> probability, int n_pop){
+vector<vector<int> > sampling(const vector<float> &probability, int n_pop){
     //generate population
     //input: probability vector for each flag; # individuals in the population
     //return: vector of size (n_pop, #flags)
@@ -115,7 +115,7 @@ void mutation(vector<vector<int> > & pop_flags, float r_mut){
     }
 }
 
-vector<int> selection(vector<pair<float,int> > sorted_runtimes, float r_sel){
+vector<int> selection(const vector<pair<float,int> > &sorted_runtimes, float r_sel){
     //select the fastest r_sel (a percentage) of population given the sorted runtimes vector
     //input: runtimes of size (n_pop,1), each element is a pair of <score, index>; selection rate
     //output: index of selected individuals
@@ -127,7 +127,7 @@ vector<int> selection(vector<pair<float,int> > sorted_runtimes, float r_sel){
     return pop_index;
 }
 
-vector<float> cal_prob(vector<vector<int> > population){
+vector<float> cal_prob(const vector<vector<int> > &population){
     //calculate the marginal probability of each flag
     //input: selected population
     //output: probability vector
@@ -159,7 +159,7 @@ vector<float> cal_prob(vector<vector<int> > population){
     return prob;
 }
 
-result UMDA(float (*fun)(vector<int>, string, string), string compile_files, string filename, int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
+result UMDA(float (*fun)(const vector<int> &, string, string), string compile_files, string filename, int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
     //initialize population; initial probability is 0.5 for each flag
     vector<float> prob(n_flags, 0.5);
     vector<vector<int> > population = sampling(prob, n_pop);
