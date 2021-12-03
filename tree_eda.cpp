@@ -1,12 +1,4 @@
-#include <iostream>
-#include <random>
-#include <vector>
-#include <algorithm>
-#include <map>
-#include <math.h>
-#include <fstream>
-#include <string>
-using namespace std;
+#include "tree_eda.h"
 
 random_device r;     // only used once to initialise (seed) engine
 default_random_engine generator(r());    // random-number engine
@@ -60,7 +52,7 @@ void print_min(const vector<float> &min_runtime, const vector<vector<int> > &min
     print_flags(flags);
 }
 
-float objective(const vector<int> &flags, string compile_files, string filename){
+float objective(const vector<int> &flags, string compile_files, string filename, string run_ops){
 	//compile_files: files to compile by gcc
 	//sample compile_files: "basicmath/basicmath_large.c basicmath/rad2deg.c basicmath/cubic.c basicmath/isqrt.c "
 	//filename: compiled filename
@@ -73,7 +65,7 @@ float objective(const vector<int> &flags, string compile_files, string filename)
 		}
 	}
     string command1 = "gcc " + compile_flags + compile_files + "-o " + filename + " -lm";
-	string command2 = "bash -c '(TIMEFORMAT='%3R'; time ./" + filename + " > output.txt) &> time.txt'";
+	string command2 = "bash -c '(TIMEFORMAT='%3R'; time ./" + filename + " " + run_ops + " > output.txt) &> time.txt'";
 
     system(command1.c_str());
     system(command2.c_str());
@@ -426,7 +418,7 @@ vector< vector<int> > tree_sampling(map<int, vector<int> > tree, const vector<fl
 }
 
 
-result TreeEDA(float (*fun)(const vector<int> &, string, string), string compile_files, string filename, int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
+result TreeEDA(float (*fun)(const vector<int> &, string, string, string), string compile_files, string filename, string run_ops, int n_flags, int n_gen, int n_pop, float r_mut, float r_sel){
    // generate initial population of n_pop individuals 
    vector<float> prob(n_flags, 0.5);
    vector<vector<int> > population = random_sampling(prob, n_pop);
@@ -439,13 +431,13 @@ result TreeEDA(float (*fun)(const vector<int> &, string, string), string compile
    // loop for n_gen iterations
    for(size_t i=0; i < n_gen; i++){
        //Calculation of performances of current population
-       min_runtime[i] = (*fun)(population[0], compile_files, filename);
+       min_runtime[i] = (*fun)(population[0], compile_files, filename, run_ops);
        min_flags[i] = population[0];
 
        vector<pair<float,int> > runtimes(n_pop, make_pair(0.0,0));
 
        for (int j = 0; j < n_pop; j++){
-            float score = (*fun)(population[j], compile_files, filename);
+            float score = (*fun)(population[j], compile_files, filename, run_ops);
             runtimes[j] = make_pair(score, j);
        }
 
@@ -497,9 +489,8 @@ result TreeEDA(float (*fun)(const vector<int> &, string, string), string compile
 
 }
 
-
-int main(){
-
+void TreeEDAProcess(string fn, string cf, string r_op){
+    
     // define the algorithm used
     string alg = "Tree-EDA";
     // define the number of generations
@@ -516,8 +507,9 @@ int main(){
     int execution_time = 30;
 
     vector<result> results_each_generation;
-	string filename("basicmath_small");
-	string compile_files("experiment/basicmath/basicmath_small.c experiment/basicmath/rad2deg.c experiment/basicmath/cubic.c experiment/basicmath/isqrt.c ");
+	string filename = fn;
+	string compile_files = cf;
+    string run_options = r_op;
 
     cout << "parameters" << ";"; 
     cout << "alg:" << alg << ";";
@@ -530,7 +522,7 @@ int main(){
     cout << "filename:" << filename << endl;
     for(size_t i = 0; i < execution_time; i++){
 		cout << "exe:" << i << endl;
-        result first = TreeEDA(objective, compile_files, filename, n_flags, n_gen, n_pop, r_mut, r_sel);
+        result first = TreeEDA(objective, compile_files, filename, run_options, n_flags, n_gen, n_pop, r_mut, r_sel);
 
         results_each_generation.push_back(first);
     }
@@ -555,5 +547,13 @@ int main(){
     }
 	cout << endl;
 
+}
+
+/*
+int main(){
+
+    TreeEDAProcess("basicmath_small","experiment/basicmath/basicmath_small.c experiment/basicmath/rad2deg.c experiment/basicmath/cubic.c experiment/basicmath/isqrt.c", "");
+
     return 0;
 }
+*/
