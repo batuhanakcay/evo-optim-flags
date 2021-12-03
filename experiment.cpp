@@ -5,7 +5,10 @@
 #include <errno.h>  // for errno
 #include <sstream>  
 
+#include "commons.h"
 #include "tree_eda.h"
+#include "UMDA.h"
+#include "ga.h"
 
 
 using namespace std;
@@ -41,14 +44,14 @@ const vector<string> experiment_compile_files = {"basicmath/basicmath_small.c   
                                                  "susan/susan.c"}; 
 
 //additional options needed by every experiment like inputs, special flags, etc. 
-const vector<string> run_options = {"",
-                                    "",
+const vector<string> run_options = {" ",
+                                    " ",
                                     "75000",
                                     "1125000",
-                                    "input_small.dat",
-                                    "input_large.dat",
-                                    "input_small.pgm output_small.smoothing.pgm -s",
-                                    "susan input_large.pgm output_large.smoothing.pgm -s"};
+                                    "qsort/input_small.dat",
+                                    "qsort/input_large.dat",
+                                    "susan/input_small.pgm output_small.smoothing.pgm -s",
+                                    "susan/input_large.pgm output_large.smoothing.pgm -s"};
 
 // ask about additional susan runs 
 // susan input_small.pgm output_small.edges.pgm -e
@@ -62,6 +65,29 @@ string updated_compile_files(string route, int exp_num){
     
     string og_compile_files = experiment_compile_files[exp_num];
     string result = "";
+
+    istringstream iss(og_compile_files);
+    string temp; 
+    while(iss >> temp){
+        result += route;
+        result += "/";
+        result += temp;
+        result += " ";
+    }
+
+    return result; 
+}
+
+string updated_run_options(string route, int exp_num){
+    
+    
+
+    string og_compile_files = experiment_compile_files[exp_num];
+    string result = "";
+    
+    if(exp_num < 4){
+        route = ""; 
+    }    
 
     istringstream iss(og_compile_files);
     string temp; 
@@ -98,7 +124,7 @@ int main(int argc, char **argv){
         return 2; 
     }
 
-    if (arg1 < 0 || arg1 > experiment_filename.size() || arg2 < 0 || arg2 > ev_algorithms.size() ) {
+    if (arg1 < 0 || arg1 >= experiment_filename.size() || arg2 < 0 || arg2 >= ev_algorithms.size() ) {
         cout << "Argument error! Experiment or Algorithm number doesn't exists" << endl;
         return 3;
     }
@@ -119,14 +145,14 @@ int main(int argc, char **argv){
 
     string cur_filename( experiment_filename[experiment_ind]);
     string cur_compile_files =  updated_compile_files(experiment_route, experiment_ind);
-    string cur_run_options( run_options[experiment_ind] );
+    string cur_run_options= updated_run_options(experiment_route, experiment_ind );
 
     string algorithm = ev_algorithms[algorithm_ind];
 
     if(algorithm=="GA"){
-        //
+        GAProcess(cur_filename,cur_compile_files,cur_run_options);
     }else if(algorithm == "UMDA"){
-        //              
+        UMDAProcess(cur_filename,cur_compile_files,cur_run_options);        
     }else if(algorithm == "TreeEDA"){
         TreeEDAProcess(cur_filename,cur_compile_files,cur_run_options);
     }else{

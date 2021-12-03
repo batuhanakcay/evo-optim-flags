@@ -1,4 +1,0 @@
-EECS583-FA21 Experiment!
-parameters;alg:Tree-EDA;n_exe:30;n_gen:50;n_flags:107;n_pop:100;r_mut:0.00934579;r_sel:0.5;filename:basicmath_small
-exe:0
-Unable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open fileUnable to open file
