@@ -5,7 +5,7 @@ algorithms = ["ga", "umda", "tree"]
 program_names = ["basicmath" , "bitcount", "qsort", "susan"]
 input_types = ["small", "large"]
 
-flags = "O1"
+flag_type = "O1"
 output_string = "output"
 input_type = 0
 program_name = 0
@@ -15,7 +15,7 @@ input_type = input_types[input_type]
 
 result_files = []
 for algorithm in algorithms:
-    result_files.append("_".join([program_name, input_type, algorithm, flags, output_string]) + ".txt")
+    result_files.append("_".join([program_name, input_type, algorithm, flag_type, output_string]) + ".txt")
 
 
 results = {}
@@ -50,9 +50,17 @@ for result_file in result_files:
                 best_values = {}
                 for field in content[1:]:
                     field = field.split(":")
-                    best_values[field[0]] = field[1]
-                    # bests
-                    results[cur_alg][1][cur_execution] = best_values
+                    if field[0] == "time":
+                        best_values["time"] = float(field[1])
+                    elif field[0] == "gen":
+                        best_values["gen"] = int(field[1])
+                    elif field[0] == "flags":
+                        best_flags = field[1].split(",")
+                        for i in range(len(best_flags)):
+                            best_flags[i] = int(best_flags[i])
+                        best_values["flags"] = best_flags
+                # bests
+                results[cur_alg][1][cur_execution] = best_values
             else:
                 field = content[0].split(":")
                 if field[0] == "exe":
@@ -95,6 +103,9 @@ def non_decreasing_eg(runtimes):
 egs = {}
 min_gen_runtimes = {}
 all_executions = {}
+flags = {}
+flag_frequencies_sorted = {}
+flag_frequencies = {}
 
 for alg in results:
     #times
@@ -113,8 +124,37 @@ for alg in results:
 
     min_gen_runtimes[alg] = alg_min_gens
 
+    alg_flags = []
+    for exe in range(n_exe):
+        alg_flags.append(results[alg][1][exe]["flags"])
+    alg_flags = np.array(alg_flags)
+    flags[alg] = alg_flags
+
+    alg_flag_frequency = np.sum(alg_flags, axis = 0)
+    flag_frequencies[alg] = alg_flag_frequency  
+
+    alg_flag_frequency_sorted = np.sort(alg_flag_frequency)[::-1]
+    alg_flag_frequency_sorted_indices = np.argsort(alg_flag_frequency)[::-1]
+
+    flag_frequencies_sorted[alg] = [alg_flag_frequency_sorted, alg_flag_frequency_sorted_indices]
+
+all_flag_frequency = np.zeros(n_flags, dtype=int)
+for alg in flag_frequencies:
+    all_flag_frequency += flag_frequencies[alg]
+all_flag_frequency_indices = np.argsort(all_flag_frequency)[::-1]
+for alg in flag_frequencies:
+    flag_frequencies[alg] = flag_frequencies[alg][all_flag_frequency_indices]
+
+
+
 gens = range(n_gen)
+flag_range = range(n_flags)
 program_type = program_name + "_" + input_type
+
+plt.gcf().set_size_inches(14, 9)
+plt.rcParams['axes.labelsize'] = 18
+plt.rcParams['axes.titlesize'] = 22
+plt.rcParams['legend.fontsize'] = 18
 
 for alg in results:
 
@@ -138,15 +178,24 @@ for alg in results:
     plt.savefig("min" + "_" + alg + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
     plt.clf()
 
-    legend_list = ["exe_"] * n_exe
+    #legend_list = ["exe_"] * n_exe
     for x in range(n_exe):
         plt.plot(gens, alg_results[x])
-        legend_list[x] = legend_list[x] + str(x + 1)
+        #legend_list[x] = legend_list[x] + str(x + 1)
     plt.xlabel('Generation Number')
     plt.ylabel('Runtime Performance')
     plt.title('Runtime for the ' + alg + " algorithm on " + program_type)
-    plt.legend(legend_list)
+    #plt.legend(legend_list)
     plt.savefig("all" + "_" + alg + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
+    plt.clf()
+
+    plt.bar(flag_range, flag_frequencies_sorted[alg][0])
+    plt.xlabel('Flag')
+    plt.ylabel('Frequency')
+    plt.title('Flag frequencies for the ' + alg + " algorithm on " + program_type)
+    plt.legend([alg])
+    plt.xticks(flag_range, flag_frequencies_sorted[alg][1])
+    plt.savefig("frequencies" + "_" + alg + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
     plt.clf()
 
 legend_algorithms = []
@@ -159,4 +208,17 @@ plt.title('Efficiency gain for different algorithms on ' + program_type)
 plt.legend(legend_algorithms)
 #plt.xticks(gens)
 plt.savefig("eg" + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
+plt.clf()
+
+
+frequency_sum = np.zeros(n_flags, dtype = int)
+for i in range(len(algorithms)):
+    plt.bar(flag_range, flag_frequencies[algorithms[i]], bottom = frequency_sum)
+    frequency_sum += flag_frequencies[algorithms[i]]
+plt.xlabel('Flag')
+plt.ylabel('Frequency')
+plt.title('Flag frequencies for all algorithms on ' + program_type)
+plt.legend(legend_algorithms)
+plt.xticks(flag_range, all_flag_frequency_indices)
+plt.savefig("frequencies" + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
 plt.clf()
