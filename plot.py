@@ -106,6 +106,8 @@ all_executions = {}
 flags = {}
 flag_frequencies_sorted = {}
 flag_frequencies = {}
+best_runtimes = {}
+best_runtimes_avg = {}
 
 for alg in results:
     #times
@@ -125,10 +127,18 @@ for alg in results:
     min_gen_runtimes[alg] = alg_min_gens
 
     alg_flags = []
+    alg_runtimes = []
+
     for exe in range(n_exe):
         alg_flags.append(results[alg][1][exe]["flags"])
+        alg_runtimes.append(results[alg][1][exe]["time"])
+
     alg_flags = np.array(alg_flags)
     flags[alg] = alg_flags
+
+    alg_runtimes = np.array(alg_runtimes)
+    best_runtimes[alg] = alg_runtimes
+    best_runtimes_avg[alg] = np.mean(alg_runtimes)
 
     alg_flag_frequency = np.sum(alg_flags, axis = 0)
     flag_frequencies[alg] = alg_flag_frequency  
@@ -221,4 +231,21 @@ plt.title('Flag frequencies for all algorithms on ' + program_type)
 plt.legend(legend_algorithms)
 plt.xticks(flag_range, all_flag_frequency_indices)
 plt.savefig("frequencies" + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
+plt.clf()
+
+
+labels = list(best_runtimes_avg.keys())
+values = list(best_runtimes_avg.values())
+for i in range(len(best_runtimes_avg)):
+    plt.bar([i], [values[i]])
+plt.xlabel('Algorithms')
+plt.ylabel('Average best runtime (seconds)')
+plt.title('Average best runtime for all algorithms on ' + program_type)
+plt.legend(labels)
+plt.xticks(range(len(best_runtimes_avg)), labels)
+min_value = min(values)
+max_value = max(values)
+dif = max_value - min_value
+plt.ylim(min_value - dif, max_value + dif)
+plt.savefig("best_runtimes_avg" + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
 plt.clf()
