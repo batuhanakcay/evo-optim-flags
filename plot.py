@@ -87,6 +87,12 @@ r_mut = float(parameters["r_mut"])
 # trunctation rate
 r_sel = float(parameters["r_sel"])
 
+gens = range(n_gen)
+flag_range = range(n_flags)
+program_type = program_name + "_" + input_type
+
+
+
 def non_decreasing_eg(runtimes):
     best_runtimes = np.copy(runtimes)
     shape = best_runtimes.shape
@@ -156,10 +162,16 @@ for alg in flag_frequencies:
     flag_frequencies[alg] = flag_frequencies[alg][all_flag_frequency_indices]
 
 
+original_times = [float('inf')] * n_exe
+original_times_file = program_type + ".txt"
 
-gens = range(n_gen)
-flag_range = range(n_flags)
-program_type = program_name + "_" + input_type
+with open(original_times_file) as f:
+    lines = f.readlines()
+    for i in range(len(lines)):
+        original_times[i] = float(lines[i])
+original_times = np.array(original_times)
+original_times_avg = np.mean(original_times)
+
 
 plt.gcf().set_size_inches(14, 9)
 plt.rcParams['axes.labelsize'] = 18
@@ -236,16 +248,34 @@ plt.clf()
 
 labels = list(best_runtimes_avg.keys())
 values = list(best_runtimes_avg.values())
-for i in range(len(best_runtimes_avg)):
+for i in range(len(values)):
     plt.bar([i], [values[i]])
 plt.xlabel('Algorithms')
 plt.ylabel('Average best runtime (seconds)')
 plt.title('Average best runtime for all algorithms on ' + program_type)
 plt.legend(labels)
-plt.xticks(range(len(best_runtimes_avg)), labels)
+plt.xticks(range(len(labels)), labels)
 min_value = min(values)
 max_value = max(values)
 dif = max_value - min_value
 plt.ylim(min_value - dif, max_value + dif)
 plt.savefig("best_runtimes_avg" + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
+plt.clf()
+
+labels.append("no_flags")
+values.append(original_times_avg)
+for i in range(len(values)):
+    plt.bar([i], [values[i]])
+plt.xlabel('Algorithms')
+plt.ylabel('Average best runtime (seconds)')
+plt.title('Average best runtime for all algorithms on ' + program_type)
+plt.legend(labels)
+plt.xticks(range(len(labels)), labels)
+"""
+min_value = min(values)
+max_value = max(values)
+dif = max_value - min_value
+plt.ylim(min_value - dif, max_value + dif)
+"""
+plt.savefig("original_runtimes_avg" + "_" + program_type + "_exe" + str(n_exe) + "_gen" + str(n_gen) + ".png")
 plt.clf()
